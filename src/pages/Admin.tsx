@@ -3,6 +3,7 @@ import { CheckCircle, XCircle, Clock, LogOut } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Order {
   id: string;
@@ -16,26 +17,40 @@ function Admin() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { signOut } = useAuth();
 
   useEffect(() => {
+    let mounted = true;
+
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        
+        if (mounted) {
+          setOrders(data || []);
+        }
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to fetch orders');
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
     fetchOrders();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
-
-  const fetchOrders = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setOrders(data || []);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch orders');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleStatusChange = async (orderId: string, newStatus: string) => {
     try {
@@ -47,19 +62,28 @@ function Admin() {
       if (error) throw error;
       
       toast.success(`Order ${newStatus} successfully`);
-      fetchOrders();
+      
+      // Update local state instead of refetching
+      setOrders(prevOrders => 
+        prevOrders.map(order => 
+          order.id === orderId 
+            ? { ...order, status: newStatus }
+            : order
+        )
+      );
     } catch (error) {
+      console.error('Error updating order status:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to update order status');
     }
   };
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      await signOut();
       navigate('/');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to log out');
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out');
     }
   };
 
@@ -73,6 +97,17 @@ function Admin() {
         return <Clock className="text-yellow-400" size={20} />;
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
+          <div className="text-white">Loading orders...</div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900">
@@ -106,11 +141,7 @@ function Admin() {
             <div className="p-6">
               <h2 className="text-xl font-semibold text-white mb-4">Orders</h2>
               
-              {loading ? (
-                <div className="text-center py-8">
-                  <div className="text-gray-400">Loading orders...</div>
-                </div>
-              ) : orders.length === 0 ? (
+              {orders.length === 0 ? (
                 <div className="text-center py-8">
                   <div className="text-gray-400">No orders found</div>
                 </div>
