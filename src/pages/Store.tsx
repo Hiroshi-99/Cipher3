@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Check, LogOut, Mail } from 'lucide-react';
+import { ShoppingCart, Check, LogOut, Mail, Shield } from 'lucide-react';
 import { AuthModal } from '../components/AuthModal';
 import { OrderModal } from '../components/OrderModal';
 import { MailboxModal } from '../components/MailboxModal';
@@ -11,6 +11,7 @@ function Store() {
   const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
   const [isMailboxModalOpen, setIsMailboxModalOpen] = useState(false);
   const { user, isAdmin } = useAuth();
+  const [addingAdmin, setAddingAdmin] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -21,6 +22,41 @@ function Store() {
       setIsAuthModalOpen(true);
     } else {
       setIsOrderModalOpen(true);
+    }
+  };
+
+  const makeUserAdmin = async () => {
+    if (!user) return;
+    
+    setAddingAdmin(true);
+    try {
+      // Check if user is already an admin
+      const { data: existingAdmin } = await supabase
+        .from('admins')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (existingAdmin) {
+        alert('You are already an admin in the database!');
+        return;
+      }
+      
+      // Add user as admin
+      const { error } = await supabase
+        .from('admins')
+        .insert([{ user_id: user.id }]);
+        
+      if (error) {
+        throw error;
+      }
+      
+      alert('Successfully added you as admin! Please refresh the page.');
+    } catch (error) {
+      console.error('Error adding admin:', error);
+      alert('Failed to add admin. See console for details.');
+    } finally {
+      setAddingAdmin(false);
     }
   };
 
@@ -59,12 +95,28 @@ function Store() {
                   Admin Dashboard
                 </a>
               )}
+              {/* Debug link - always visible when logged in */}
+              <a
+                href="/admin"
+                className="text-yellow-400 hover:text-yellow-300 flex items-center gap-2"
+              >
+                Admin Direct Link
+              </a>
               <button
                 onClick={handleLogout}
                 className="text-white/80 hover:text-white flex items-center gap-2"
               >
                 <LogOut size={20} />
                 Logout
+              </button>
+              {/* Debug admin tools */}
+              <button
+                onClick={makeUserAdmin}
+                disabled={addingAdmin || isAdmin}
+                className={`text-${isAdmin ? 'gray' : 'purple'}-400 hover:text-${isAdmin ? 'gray' : 'purple'}-300 flex items-center gap-2 ${addingAdmin ? 'opacity-50 cursor-not-allowed' : ''}`}
+              >
+                <Shield size={20} />
+                {addingAdmin ? 'Adding...' : isAdmin ? 'Already Admin' : 'Make Me Admin'}
               </button>
             </div>
           )}

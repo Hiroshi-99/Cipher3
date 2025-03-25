@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import Store from './pages/Store';
@@ -27,16 +27,29 @@ function DebugAuth() {
 }
 
 function ProtectedAdminRoute({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isLoading } = useAuth();
+  
+  // Show loading state while auth is initializing
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <div>Loading admin dashboard...</div>
+        <DebugAuth />
+      </div>
+    );
+  }
   
   if (!user) {
+    console.log("Admin access denied: Not logged in");
     return <Navigate to="/" replace />;
   }
   
   if (!isAdmin) {
+    console.log("Admin access denied: Not an admin");
     return <Navigate to="/" replace />;
   }
   
+  console.log("Admin access granted");
   return <>{children}</>;
 }
 
@@ -52,6 +65,7 @@ function App() {
             element={
               <ProtectedAdminRoute>
                 <Admin />
+                <DebugAuth />
               </ProtectedAdminRoute>
             } 
           />
