@@ -17,7 +17,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
+      console.log("Initial auth state:", session?.user ? "Logged in" : "Not logged in");
       if (session?.user) {
+        console.log("User ID:", session.user.id);
         checkAdminStatus(session.user.id);
       }
     });
@@ -25,7 +27,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      console.log("Auth state changed:", session?.user ? "Logged in" : "Not logged in");
       if (session?.user) {
+        console.log("User ID:", session.user.id);
         checkAdminStatus(session.user.id);
       } else {
         setIsAdmin(false);
@@ -37,6 +41,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const checkAdminStatus = async (userId: string) => {
     try {
+      console.log("Checking admin status for user:", userId);
       const { data, error } = await supabase
         .from('admins')
         .select('id')
@@ -49,6 +54,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      console.log("Admin check result:", data ? "Is admin" : "Not admin");
       setIsAdmin(!!data);
     } catch (error) {
       console.error('Error checking admin status:', error);
